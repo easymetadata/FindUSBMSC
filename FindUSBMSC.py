@@ -1,18 +1,19 @@
 # This script attempts to extract USBMSC entries from Mac OS X kernel logs and
 # then correlate the product id of the log entry with usb id's from "http://www.linux-usb.org/usb.ids".
 #	-Script will handle compressed log files automatically.
-#	*As of OSX Sierra kernel log's are legacy however still have useful information.
+#	*As of OSX Sierra kernel log's are legacy. Unified logging has taken over.
 #		Refs: https://www.mac4n6.com/blog/2016/11/13/new-macos-sierra-1012-forensic-artifacts-introducing-unified-logging
 #		-
 # Author: David Dym
-# v20170720 - Ported from perl to python. Derived from Jason Hale's usbmsc.pl script version 20130125
+# v20170720 - Ported from perl to python. Derived from Jason Hale's usbmsc.pl script version 20130125.
 # v20171003 - changes to regex pattern matching to account for commma change in system log. Logic changes to pid matching. Fixes to logic. 
-# v20171016 - Logic cleanup. Improve pid and vid parsing. Added list of unique devices. Added options parser
+# v20171016 - Logic cleanup. Improve pid and vid parsing. Added list of unique devices. Added options parser.
+# v20171017 - Add option to parse any file or just system log files. Useful for carved logs.
 
 import os
 import time
 from datetime import datetime, timedelta
-import sys, csv, sqlite3
+import sys
 import fnmatch
 import re
 import urllib2
@@ -20,7 +21,7 @@ import gzip
 import numpy
 from optparse import OptionParser
 
-version = 'v20171016'
+version = 'v20171017'
 url = "http://www.linux-usb.org/usb.ids"
 
 tempDFileName = ""
@@ -32,34 +33,30 @@ print 'FindUSBMSC ', version, ' -- by David Dym'
 print '========================================================================\n'
 
 def GetOptions():
-    '''Get needed options for processesing'''
-    usage = "usage: %prog -d LOGPATH";
-    options = OptionParser(usage=usage);
+	'''Get needed options for processesing'''
+	usage = "usage: %prog -d logpath -a all";
+	options = OptionParser(usage=usage);
 
-    options.add_option("-d",
-                   action="store",
-                   type="string",
-                   dest="logpath",
-                   default=True, 
-                   help="Path to the system logs");
-    return options;
+	options.add_option("-d", action="store", type="string", dest="logpath", default=True,  help="Path to the system logs. -d ");
+	options.add_option("-a", action="store", type="int", dest="all", default=False,  help="Process all logs. Useful for carved. -a 1");
+	return options;
 
 def ParseOptions():
-        # Get options
-        options = GetOptions()
-        (opts,args) = options.parse_args()
-
-        # The meta will store all information about the arguments passed #
-        meta = {
-            'logpath':opts.logpath
-            }
-        # Test arguments passed #
-        if os.path.exists(meta['logpath']):
-            pass
-        else:
-            options.error("Unable to proceed. Check the proper command syntax using -h\n")
-        # Return meta to caller #
-        return meta;
+	# Get options
+	options = GetOptions()
+	(opts,args) = options.parse_args()
+	# The meta will store all information about the arguments passed #
+	meta = {
+		'logpath':opts.logpath,
+		'all':opts.all
+		}
+	# Test arguments passed #
+	if os.path.exists(meta['logpath']):
+		pass
+	else:
+		options.error("Unable to proceed. Check the proper command syntax using -h\n")
+	# Return meta to caller #
+	return meta;
 
 
 # deletes file if older than 2 days
@@ -158,22 +155,26 @@ def matchUSBids(line, usbs):
 #### Main ####
 meta = ParseOptions()
 dirpath = meta['logpath']
+alllogs = meta['all']
 
 # get usbid's
 usbidlist = get_usbid_file(url)
 
 print "Logs processed"
 #read each file
-for filename in find_files(dirpath, '*.log*'):
+if alllogs == 1:
+	pattern = '*.log'
+else:
+	pattern = '*system*.log*'
+
+for filename in find_files(dirpath, pattern):
 	print filename
+	#check for gzip File
+	if ".gz" in filename:
+		filename = compressedLog(filename)
 	
-	if "system" in filename:
-		#check for gzip File
-		if ".gz" in filename:
-			filename = compressedLog(filename)
-		
-		#process system log
-		findUSBMSC(filename)
+	#process system log
+	findUSBMSC(filename)
 
 print "\nUSBMSC devices"
 for line in USBMSCmatches:
