@@ -1,7 +1,7 @@
 # This script attempts to extract USBMSC entries from Mac OS X kernel logs and
 # then correlate the product id of the log entry with usb id's from "http://www.linux-usb.org/usb.ids".
 #	-Script will handle compressed log files automatically.
-#	*As of OSX Sierra kernel log's are legacy. Unified logging has taken over.
+#	*As of OSX Sierra kernel log's are legacy however still have useful information.
 #		Refs: https://www.mac4n6.com/blog/2016/11/13/new-macos-sierra-1012-forensic-artifacts-introducing-unified-logging
 #		-
 # Author: David Dym
