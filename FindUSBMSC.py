@@ -34,7 +34,7 @@ print '========================================================================\
 
 def GetOptions():
 	'''Get needed options for processesing'''
-	usage = "usage: %prog -d logpath -a all";
+	usage = "usage: %prog -d logpath -a 1";
 	options = OptionParser(usage=usage);
 
 	options.add_option("-d", action="store", type="string", dest="logpath", default=True,  help="Path to the system logs. -d ");
