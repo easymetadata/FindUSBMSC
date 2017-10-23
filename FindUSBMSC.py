@@ -22,7 +22,7 @@ import gzip
 import numpy
 from optparse import OptionParser
 
-version = 'v20171017'
+version = 'v20171023'
 url = "http://www.linux-usb.org/usb.ids"
 
 tempDFileName = ""
