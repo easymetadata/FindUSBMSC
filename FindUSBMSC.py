@@ -9,6 +9,7 @@
 # v20171003 - changes to regex pattern matching to account for commma change in system log. Logic changes to pid matching. Fixes to logic. 
 # v20171016 - Logic cleanup. Improve pid and vid parsing. Added list of unique devices. Added options parser.
 # v20171017 - Add option to parse any file or just system log files. Useful for carved logs.
+# v20171023 - bugfix to pattern for alllogs. missing * at end of *.log caused some logs to be missed.
 
 import os
 import time
@@ -163,12 +164,12 @@ usbidlist = get_usbid_file(url)
 print "Logs processed"
 #read each file
 if alllogs == 1:
-	pattern = '*.log'
+	pattern = '*.log*'
 else:
 	pattern = '*system*.log*'
 
 for filename in find_files(dirpath, pattern):
-	print filename
+	#print filename
 	#check for gzip File
 	if ".gz" in filename:
 		filename = compressedLog(filename)
