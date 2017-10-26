@@ -10,6 +10,7 @@
 # v20171016 - Logic cleanup. Improve pid and vid parsing. Added list of unique devices. Added options parser.
 # v20171017 - Add option to parse any file or just system log files. Useful for carved logs.
 # v20171023 - bugfix to pattern for alllogs. missing * at end of *.log caused some logs to be missed.
+# v20171026 - Fixes issue with gzipped logs not being processed due to wrong variable being returned.
 
 import os
 import time
@@ -22,7 +23,7 @@ import gzip
 import numpy
 from optparse import OptionParser
 
-version = 'v20171023'
+version = 'v20171026'
 url = "http://www.linux-usb.org/usb.ids"
 
 tempDFileName = ""
@@ -98,11 +99,11 @@ def find_files(directory, pattern):
 
 def compressedLog(filename):
 	with gzip.open(filename, 'rb') as infile:
-		tempDFileName = "tmp000.log"
+		tempDFileName = "system_tmp.log"
 		with open(tempDFileName, 'wb') as outfile:
 			for line in infile:
 				outfile.write(line)
-	return filename
+	return tempDFileName
 
 def USBMSCEntry(logDate, host, serial, vid, pid, miscother):
 	return "%s, %s, %s, %s, %s, %s" % (logDate, host, serial, vid, pid, miscother.strip())
