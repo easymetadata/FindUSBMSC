@@ -11,6 +11,7 @@
 # v20171017 - Add option to parse any file or just system log files. Useful for carved logs.
 # v20171023 - bugfix to pattern for alllogs. missing * at end of *.log caused some logs to be missed.
 # v20171026 - Fixes issue with gzipped logs not being processed due to wrong variable being returned.
+# v20171030 - Add code to allow gzip to ignore crc errors in gzip
 
 import os
 import time
@@ -20,10 +21,11 @@ import fnmatch
 import re
 import urllib2
 import gzip
+import contextlib
 import numpy
 from optparse import OptionParser
 
-version = 'v20171026'
+version = 'v20171030'
 url = "http://www.linux-usb.org/usb.ids"
 
 tempDFileName = ""
@@ -60,6 +62,19 @@ def ParseOptions():
 	# Return meta to caller #
 	return meta;
 
+@contextlib.contextmanager
+def patch_gzip_for_partial():
+    """
+    Context manager that replaces gzip.GzipFile._read_eof with a no-op.
+
+    This is useful when decompressing partial files, something that won't
+    work if GzipFile does it's checksum comparison.
+	 https://stackoverflow.com/questions/1732709/unzipping-part-of-a-gz-file-using-python
+    """
+    _read_eof = gzip.GzipFile._read_eof
+    gzip.GzipFile._read_eof = lambda *args, **kwargs: None
+    yield
+    gzip.GzipFile._read_eof = _read_eof
 
 # deletes file if older than 2 days
 def oldFileCleanup(file, days):
@@ -98,12 +113,22 @@ def find_files(directory, pattern):
                 yield filename
 
 def compressedLog(filename):
-	with gzip.open(filename, 'rb') as infile:
-		tempDFileName = "system_tmp.log"
+	try:
+		#with gzip.open(filename, 'rb') as infile:
+		with patch_gzip_for_partial():
+			infile = gzip.GzipFile(filename,'rb').read()
+			tempDFileName = "system_tmp.log"
+			with open(tempDFileName, 'wb') as outfile:
+				for line in infile:
+					outfile.write(line)
+			return tempDFileName
+	except IOError:
+		print ("Error in ", filename, IOError)
+		#empty temp file
 		with open(tempDFileName, 'wb') as outfile:
-			for line in infile:
-				outfile.write(line)
-	return tempDFileName
+			outfile.write("")
+#	except:
+	return filename
 
 def USBMSCEntry(logDate, host, serial, vid, pid, miscother):
 	return "%s, %s, %s, %s, %s, %s" % (logDate, host, serial, vid, pid, miscother.strip())
@@ -138,7 +163,6 @@ def matchUSBids(line, usbs):
 	pid = items[4].strip()
 
 	for line2 in usbs:		
-		
 		if line2.startswith("0"):
 			if vid in line2:
 				manufacturer = "%s" % re.sub(r"^0" + vid, '', line2).strip()
@@ -162,21 +186,24 @@ alllogs = meta['all']
 # get usbid's
 usbidlist = get_usbid_file(url)
 
-print "Logs processed"
+print "Logs messages"
 #read each file
-if alllogs == 1:
+if alllogs:
 	pattern = '*.log*'
 else:
 	pattern = '*system*.log*'
 
 for filename in find_files(dirpath, pattern):
-	#print filename
+	#print filename + ' '
 	#check for gzip File
-	if ".gz" in filename:
-		filename = compressedLog(filename)
-	
-	#process system log
-	findUSBMSC(filename)
+	try:
+		if ".gz" in filename:
+			filename = compressedLog(filename)
+			
+		#process system log
+		findUSBMSC(filename)
+	except RuntimeError:
+		print "*failed to decompress: %s" % ValueError
 
 print "\nUSBMSC devices"
 for line in USBMSCmatches:
